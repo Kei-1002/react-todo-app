@@ -54,9 +54,91 @@ const App = () => {
   const isNewTodoNameInvalid = newTodoNameError !== "";
   const showNewTodoNameError = isNameTouched && isNewTodoNameInvalid;
 
+  // 1. localStorageへの自動保存
   useEffect(() => {
     localStorage.setItem(localStorageKey, JSON.stringify(todos));
   }, [todos]);
+
+  // 2. 通知許可のリクエストと期限チェック通知（初回マウント時に実行）
+  useEffect(() => {
+    if (!("Notification" in window)) {
+      return;
+    }
+
+    const checkAndNotify = () => {
+      if (Notification.permission !== "granted") {
+        return;
+      }
+
+      const now = dayjs();
+
+      // 期限切れの未完了タスク（deadline < 現在時刻）
+      const overdueTodos = todos.filter((todo) => {
+        return (
+          !todo.isDone &&
+          todo.deadline !== null &&
+          dayjs(todo.deadline).isBefore(now)
+        );
+      });
+
+      // 今日が期限の未完了タスク（期限切れを除く、今日中のタスク）
+      const dueTodayTodos = todos.filter((todo) => {
+        return (
+          !todo.isDone &&
+          todo.deadline !== null &&
+          !dayjs(todo.deadline).isBefore(now) &&
+          dayjs(todo.deadline).isSame(now, "day")
+        );
+      });
+
+      let selectedMessage = "";
+
+      // ① 期限切れのタスクがある場合（緊急度：高）
+      if (overdueTodos.length > 0) {
+        const names = overdueTodos.map((todo) => `「${todo.name}」`).join("と");
+        const OVERDUE_MESSAGES = [
+          `師匠から課された課題${names} の期限が過ぎています...遠くから師匠の怒鳴り声が聞こえてきますね...`, //ルチオ
+          `ど、どうして指令：${names} を遂行しなかったんですか？そ、そうしてはいけないって分かってるのに...`, //ソラ
+          `${names}をやらなかったの！？パパに怒られちゃう...`, //キラ
+          `あら？${names}がまだ完成していないじゃない。マエストロのクリティークに間に合わないわ。`, //アルビナ
+          `${names}をしなかったんだな...く・への時間だ。 `, //良秀
+          `子供じゃないんだから、ちゃんと${names}はやりなよ... `, //アラヤ
+        ];
+        const randomIndex = Math.floor(Math.random() * OVERDUE_MESSAGES.length);
+        selectedMessage = OVERDUE_MESSAGES[randomIndex];
+      }
+      // ② 期限切れはないが、今日が期限のタスクがある場合（緊急度：中）
+      else if (dueTodayTodos.length > 0) {
+        const names = dueTodayTodos.map((todo) => `「${todo.name}」`).join("と");
+        const DUE_TODAY_MESSAGES = [
+          `おい、教本。${names}はもう終わったのか？ `, //ヴァレンチーナ
+          `指令： ${names} の期限が迫っているな。そろそろ遂行したほうがいいんじゃないか？`, //リアン
+          `娘ちゃん！！${names}はもう終わったのか！？まだならパパと一緒に終わらせようぜ！ `, //マティアス
+          `${names} `, //カリスト
+          `${names}をする時間だ。やらなければ、く・へ。 `, //良秀
+        ];
+        const randomIndex = Math.floor(Math.random() * DUE_TODAY_MESSAGES.length);
+        selectedMessage = DUE_TODAY_MESSAGES[randomIndex];
+      }
+
+      if (selectedMessage) {
+        new Notification("TodoAppからの通知", {
+          body: selectedMessage,
+        });
+      }
+    };
+
+    if (Notification.permission === "default") {
+      Notification.requestPermission().then((permission) => {
+        if (permission === "granted") {
+          checkAndNotify();
+        }
+      });
+    } else if (Notification.permission === "granted") {
+      checkAndNotify();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const updateNewTodoName = (e: ChangeEvent<HTMLInputElement>) => {
     setNewTodoName(e.target.value);
