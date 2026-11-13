@@ -114,8 +114,8 @@ const App = () => {
           `おい、教本。${names}はもう終わったのか？ `, //ヴァレンチーナ
           `指令： ${names} の期限が迫っているな。そろそろ遂行したほうがいいんじゃないか？`, //リアン
           `娘ちゃん！！${names}はもう終わったのか！？まだならパパと一緒に終わらせようぜ！ `, //マティアス
-          `${names} `, //カリスト
-          `${names}をする時間だ。やらなければ、く・へ。 `, //良秀
+          `${names} はもう完成したのですか？展示会はもうすぐですよ？`, //カリスト
+          `${names}をする時間だ。やらなければ、く・へ、だ。 `, //良秀
         ];
         const randomIndex = Math.floor(Math.random() * DUE_TODAY_MESSAGES.length);
         selectedMessage = DUE_TODAY_MESSAGES[randomIndex];
