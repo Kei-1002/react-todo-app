@@ -12,6 +12,14 @@ import { faTriangleExclamation } from "@fortawesome/free-solid-svg-icons";
 
 const localStorageKey = "TodoApp";
 
+const IMPORTANCE_OPTIONS = [
+  { value: 0, label: "なし", colorClass: "text-black" },
+  { value: 1, label: "低", colorClass: "text-yellow-500" },
+  { value: 2, label: "中", colorClass: "text-orange-500" },
+  { value: 3, label: "高", colorClass: "text-red-600" },
+  { value: 4, label: "最高", colorClass: "text-green-600" },
+];
+
 type StoredTodo = {
   id: string;
   name: string;
@@ -44,7 +52,7 @@ const getTodoNameError = (name: string): string => {
 const App = () => {
   const [todos, setTodos] = useState<Todo[]>(loadTodos);
   const [newTodoName, setNewTodoName] = useState("");
-  const [newTodoPriority, setNewTodoPriority] = useState(3);
+  const [newTodoPriority, setNewTodoPriority] = useState(0); // デフォルト: 0 (なし)
   const [newTodoDeadline, setNewTodoDeadline] = useState<Date | null>(null);
   const [isNameTouched, setIsNameTouched] = useState(false);
 
@@ -72,7 +80,6 @@ const App = () => {
 
       const now = dayjs();
 
-      // 期限切れの未完了タスク（deadline < 現在時刻）
       const overdueTodos = todos.filter((todo) => {
         return (
           !todo.isDone &&
@@ -81,7 +88,6 @@ const App = () => {
         );
       });
 
-      // 今日が期限の未完了タスク（期限切れを除く、今日中のタスク）
       const dueTodayTodos = todos.filter((todo) => {
         return (
           !todo.isDone &&
@@ -93,11 +99,10 @@ const App = () => {
 
       let selectedMessage = "";
 
-      // ① 期限切れのタスクがある場合（緊急度：高）
       if (overdueTodos.length > 0) {
         const names = overdueTodos.map((todo) => `「${todo.name}」`).join("と");
         const OVERDUE_MESSAGES = [
-          `師匠から課された${names} の期限が過ぎています...遠くから師匠の怒鳴り声が聞こえてきますね...`, //ルチオ
+          `師匠から課された課題${names} の期限が過ぎています...遠くから師匠の怒鳴り声が聞こえてきますね...`, //ルチオ
           `ど、どうして指令：${names} を遂行しなかったんですか？そ、そうしてはいけないって分かってるのに...`, //ソラ
           `${names}をやらなかったの！？パパに怒られちゃう...`, //キラ
           `あら？${names}がまだ完成していないじゃない。マエストロのクリティークに間に合わないわ。`, //アルビナ
@@ -106,16 +111,14 @@ const App = () => {
         ];
         const randomIndex = Math.floor(Math.random() * OVERDUE_MESSAGES.length);
         selectedMessage = OVERDUE_MESSAGES[randomIndex];
-      }
-      // ② 期限切れはないが、今日が期限のタスクがある場合（緊急度：中）
-      else if (dueTodayTodos.length > 0) {
+      } else if (dueTodayTodos.length > 0) {
         const names = dueTodayTodos.map((todo) => `「${todo.name}」`).join("と");
         const DUE_TODAY_MESSAGES = [
           `おい、教本。${names}はもう終わったのか？ `, //ヴァレンチーナ
           `指令： ${names} の期限が迫っているな。そろそろ遂行したほうがいいんじゃないか？`, //リアン
           `娘ちゃん！！${names}はもう終わったのか！？まだならパパと一緒に終わらせようぜ！ `, //マティアス
-          `${names} はもう完成したのですか？展示会はもうすぐですよ？`, //カリスト
-          `${names}をする時間だ。やらなければ、く・へ、だ。 `, //良秀
+          `${names} `, //カリスト
+          `${names}をする時間だ。やらなければ、く・へ。 `, //良秀
         ];
         const randomIndex = Math.floor(Math.random() * DUE_TODAY_MESSAGES.length);
         selectedMessage = DUE_TODAY_MESSAGES[randomIndex];
@@ -169,7 +172,7 @@ const App = () => {
     };
     setTodos((currentTodos) => [...currentTodos, newTodo]);
     setNewTodoName("");
-    setNewTodoPriority(3);
+    setNewTodoPriority(0); // リセット時も 0 (なし) に戻す
     setNewTodoDeadline(null);
     setIsNameTouched(false);
   };
@@ -269,19 +272,25 @@ const App = () => {
         </div>
 
         <fieldset>
-          <legend className="mb-1 font-bold">優先度</legend>
-          <div className="flex gap-5">
-            {[1, 2, 3].map((value) => (
-              <label key={value} className="flex items-center space-x-1">
+          <legend className="mb-1 font-bold">重要度</legend>
+          <div className="flex flex-wrap gap-4">
+            {IMPORTANCE_OPTIONS.map((option) => (
+              <label
+                key={option.value}
+                className="flex cursor-pointer items-center space-x-1"
+              >
                 <input
-                  id={`priority-${value}`}
-                  name="priorityGroup"
+                  id={`importance-${option.value}`}
+                  name="importanceGroup"
                   type="radio"
-                  value={value}
-                  checked={newTodoPriority === value}
+                  value={option.value}
+                  checked={newTodoPriority === option.value}
                   onChange={updateNewTodoPriority}
+                  className="cursor-pointer"
                 />
-                <span>{value}</span>
+                <span className={twMerge("font-bold", option.colorClass)}>
+                  {option.label}
+                </span>
               </label>
             ))}
           </div>

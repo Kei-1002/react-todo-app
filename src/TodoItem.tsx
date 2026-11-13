@@ -10,7 +10,13 @@ type Props = {
   remove: (id: string) => void;
 };
 
-const num2star = (n: number): string => "★".repeat(4 - n);
+const IMPORTANCE_CONFIG: Record<number, { label: string; colorClass: string }> = {
+  0: { label: "なし", colorClass: "text-black" },
+  1: { label: "低", colorClass: "text-yellow-500" },
+  2: { label: "中", colorClass: "text-orange-500" },
+  3: { label: "高", colorClass: "text-red-600" },
+  4: { label: "最高", colorClass: "text-green-600" },
+};
 
 const formattedDate = (date: Date) => {
   if (date.getHours() === 0 && date.getMinutes() === 0) {
@@ -21,6 +27,7 @@ const formattedDate = (date: Date) => {
 
 const TodoItem = (props: Props) => {
   const todo = props.todo;
+  const importance = IMPORTANCE_CONFIG[todo.priority] ?? IMPORTANCE_CONFIG[0];
 
   return (
     <div className="flex items-center justify-between gap-3 rounded-md border border-slate-300 bg-white px-4 py-2 drop-shadow">
@@ -46,10 +53,10 @@ const TodoItem = (props: Props) => {
           </span>
         </label>
         <span
-          aria-label={`優先度: ${todo.priority}`}
-          className="tracking-tighter text-orange-400"
+          aria-label={`重要度: ${importance.label}`}
+          className={twMerge("text-sm font-bold", importance.colorClass)}
         >
-          {num2star(todo.priority)}
+          {importance.label}
         </span>
         {todo.deadline && (
           <span className="flex items-center text-sm text-slate-500">
