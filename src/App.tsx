@@ -205,7 +205,7 @@ const App = () => {
       const names = overdueTodos.map((todo) => `「${todo.name}」`).join("と");
       const OVERDUE_MESSAGES = [
         `師匠から課された課題${names} の期限が過ぎています...遠くから師匠の怒鳴り声が聞こえてきますね...`, //ルチオ
-        `ど、どうして指令：${names} を遂行しなかったんですか？そ、そうしてはいけないって分かってるのに...`, //ソラ
+        `（ビープ音）ど、どうして指令：${names} を遂行しなかったんですか？そ、そうしてはいけないって分かってるのに...`, //ソラ
         `${names}をやらなかったの！？パパに怒られちゃう...`, //キラ
         `あら？${names}がまだ完成していないじゃない。マエストロのクリティークに間に合わないわ。`, //アルビナ
         `${names}をしなかったんだな...く・への時間だ。 `, //良秀
@@ -218,10 +218,10 @@ const App = () => {
     else if (approachingTodos.length > 0) {
       const names = approachingTodos.map((todo) => `「${todo.name}」`).join("と");
       const DUE_SOON_MESSAGES = [
-        `おい、教本。${names}はもう終わったのか？（あと${notifyHoursBefore}時間以内だぞ）`, //ヴァレンチーナ
-        `指令： ${names} の期限（${notifyHoursBefore}時間以内）が迫っているな。そろそろ遂行したほうがいいんじゃないか？`, //リアン
+        `おい、教本。${names}はもう終わったのか？アタシ言ったよな！？あと${notifyHoursBefore}時間以内に終わらせろよ！！？？`, //ヴァレンチーナ
+        `（ビープ音）指令： ${names} の期限があと${notifyHoursBefore}時間後に迫っているな。そろそろ遂行したほうがいいんじゃないか？`, //リアン
         `娘ちゃん！！${names}はもう終わったのか！？あと${notifyHoursBefore}時間以内だ、まだならパパと一緒に終わらせようぜ！`, //マティアス
-        `${names}（残り${notifyHoursBefore}時間以内）`, //カリスト
+        `あなたの作品：${names}はもう完成したのですか？展示会まであと${notifyHoursBefore}時間しかありませんよ？`, //カリスト
         `${names}をする時間だ。あと${notifyHoursBefore}時間以内にやらなければ、く・へ。`, //良秀
       ];
       const randomIndex = Math.floor(Math.random() * DUE_SOON_MESSAGES.length);
