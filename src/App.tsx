@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import type { ChangeEvent } from "react";
 import type { Todo } from "./types";
 import { initTodos } from "./initTodos";
@@ -14,12 +14,16 @@ import {
   faMoon,
   faPen,
   faCheck,
+  faBell,
+  faBellSlash,
 } from "@fortawesome/free-solid-svg-icons";
 
 const localStorageKey = "TodoApp";
 const darkModeStorageKey = "TodoApp_DarkMode";
 const userNameStorageKey = "TodoApp_UserName";
 const importanceEffectStorageKey = "TodoApp_ImportanceEffect";
+const notifyEnabledStorageKey = "TodoApp_NotifyEnabled";
+const notifyHoursStorageKey = "TodoApp_NotifyHours";
 
 const IMPORTANCE_OPTIONS = [
   { value: 0, label: "なし", colorClass: "text-black dark:text-slate-200" },
@@ -109,7 +113,7 @@ const App = () => {
   const [showImportanceEffects, setShowImportanceEffects] = useState<boolean>(
     () => {
       const saved = localStorage.getItem(importanceEffectStorageKey);
-      return saved !== null ? saved === "true" : true; // 初期値はON
+      return saved !== null ? saved === "true" : true;
     },
   );
 
@@ -119,6 +123,31 @@ const App = () => {
       String(showImportanceEffects),
     );
   }, [showImportanceEffects]);
+
+  // 通知ON/OFFと通知タイミング（何時間前）の状態管理
+  const [isNotifyEnabled, setIsNotifyEnabled] = useState<boolean>(() => {
+    const saved = localStorage.getItem(notifyEnabledStorageKey);
+    return saved !== null ? saved === "true" : true;
+  });
+
+  const [notifyHoursBefore, setNotifyHoursBefore] = useState<number>(() => {
+    const saved = localStorage.getItem(notifyHoursStorageKey);
+    const parsed = saved !== null ? Number(saved) : 24;
+    return !Number.isNaN(parsed) && parsed >= 1 ? parsed : 24;
+  });
+
+  // 同じセッション内で同じ内容の通知を連続発火させないための記録
+  const lastNotifiedKeyRef = useRef<string>("");
+
+  useEffect(() => {
+    localStorage.setItem(notifyEnabledStorageKey, String(isNotifyEnabled));
+  }, [isNotifyEnabled]);
+
+  useEffect(() => {
+    localStorage.setItem(notifyHoursStorageKey, String(notifyHoursBefore));
+    // 通知時間を変更したら再チェックできるように記録をリセット
+    lastNotifiedKeyRef.current = "";
+  }, [notifyHoursBefore]);
 
   const uncompletedCount = todos.filter((todo) => !todo.isDone).length;
   const completedCount = todos.length - uncompletedCount;
@@ -131,69 +160,87 @@ const App = () => {
     localStorage.setItem(localStorageKey, JSON.stringify(todos));
   }, [todos]);
 
-  // 2. 通知許可のリクエストと期限チェック通知
-  useEffect(() => {
-    if (!("Notification" in window)) {
+  // 2. 期限チェック＆通知実行関数
+  const checkAndNotify = useCallback(() => {
+    if (!isNotifyEnabled || !("Notification" in window)) {
+      return;
+    }
+    if (Notification.permission !== "granted") {
       return;
     }
 
-    const checkAndNotify = () => {
-      if (Notification.permission !== "granted") {
-        return;
-      }
+    const now = dayjs();
+    const threshold = now.add(notifyHoursBefore, "hour");
 
-      const now = dayjs();
+    // ① 期限切れの未完了タスク（deadline < 現在時刻）
+    const overdueTodos = todos.filter((todo) => {
+      return (
+        !todo.isDone &&
+        todo.deadline !== null &&
+        dayjs(todo.deadline).isBefore(now)
+      );
+    });
 
-      const overdueTodos = todos.filter((todo) => {
-        return (
-          !todo.isDone &&
-          todo.deadline !== null &&
-          dayjs(todo.deadline).isBefore(now)
-        );
+    // ② 指定した「○時間以内」に期限が迫っている未完了タスク
+    const approachingTodos = todos.filter((todo) => {
+      return (
+        !todo.isDone &&
+        todo.deadline !== null &&
+        !dayjs(todo.deadline).isBefore(now) &&
+        (dayjs(todo.deadline).isBefore(threshold) ||
+          dayjs(todo.deadline).isSame(threshold))
+      );
+    });
+
+    // 重複通知防止用のキーを作成
+    const notifyKey = `overdue:${overdueTodos.map((t) => t.id).join(",")}|soon:${approachingTodos.map((t) => t.id).join(",")}|h:${notifyHoursBefore}`;
+    if (notifyKey === lastNotifiedKeyRef.current) {
+      return;
+    }
+
+    let selectedMessage = "";
+
+    // ① 期限切れのタスクがある場合（緊急度：高）
+    if (overdueTodos.length > 0) {
+      const names = overdueTodos.map((todo) => `「${todo.name}」`).join("と");
+      const OVERDUE_MESSAGES = [
+        `師匠から課された課題${names} の期限が過ぎています...遠くから師匠の怒鳴り声が聞こえてきますね...`, //ルチオ
+        `ど、どうして指令：${names} を遂行しなかったんですか？そ、そうしてはいけないって分かってるのに...`, //ソラ
+        `${names}をやらなかったの！？パパに怒られちゃう...`, //キラ
+        `あら？${names}がまだ完成していないじゃない。マエストロのクリティークに間に合わないわ。`, //アルビナ
+        `${names}をしなかったんだな...く・への時間だ。 `, //良秀
+        `子供じゃないんだから、ちゃんと${names}はやりなよ... `, //アラヤ
+      ];
+      const randomIndex = Math.floor(Math.random() * OVERDUE_MESSAGES.length);
+      selectedMessage = OVERDUE_MESSAGES[randomIndex];
+    }
+    // ② 期限切れはないが、指定した○時間以内に期限が迫っているタスクがある場合（緊急度：中）
+    else if (approachingTodos.length > 0) {
+      const names = approachingTodos.map((todo) => `「${todo.name}」`).join("と");
+      const DUE_SOON_MESSAGES = [
+        `おい、教本。${names}はもう終わったのか？（あと${notifyHoursBefore}時間以内だぞ）`, //ヴァレンチーナ
+        `指令： ${names} の期限（${notifyHoursBefore}時間以内）が迫っているな。そろそろ遂行したほうがいいんじゃないか？`, //リアン
+        `娘ちゃん！！${names}はもう終わったのか！？あと${notifyHoursBefore}時間以内だ、まだならパパと一緒に終わらせようぜ！`, //マティアス
+        `${names}（残り${notifyHoursBefore}時間以内）`, //カリスト
+        `${names}をする時間だ。あと${notifyHoursBefore}時間以内にやらなければ、く・へ。`, //良秀
+      ];
+      const randomIndex = Math.floor(Math.random() * DUE_SOON_MESSAGES.length);
+      selectedMessage = DUE_SOON_MESSAGES[randomIndex];
+    }
+
+    if (selectedMessage) {
+      new Notification("TodoAppからの通知", {
+        body: selectedMessage,
       });
+      lastNotifiedKeyRef.current = notifyKey;
+    }
+  }, [isNotifyEnabled, notifyHoursBefore, todos]);
 
-      const dueTodayTodos = todos.filter((todo) => {
-        return (
-          !todo.isDone &&
-          todo.deadline !== null &&
-          !dayjs(todo.deadline).isBefore(now) &&
-          dayjs(todo.deadline).isSame(now, "day")
-        );
-      });
-
-      let selectedMessage = "";
-
-      if (overdueTodos.length > 0) {
-        const names = overdueTodos.map((todo) => `「${todo.name}」`).join("と");
-        const OVERDUE_MESSAGES = [
-          `師匠から課された課題${names} の期限が過ぎています...遠くから師匠の怒鳴り声が聞こえてきますね...`, //ルチオ
-          `ど、どうして指令：${names} を遂行しなかったんですか？そ、そうしてはいけないって分かってるのに...`, //ソラ
-          `${names}をやらなかったの！？パパに怒られちゃう...`, //キラ
-          `あら？${names}がまだ完成していないじゃない。マエストロのクリティークに間に合わないわ。`, //アルビナ
-          `${names}をしなかったんだな...く・への時間だ。 `, //良秀
-          `子供じゃないんだから、ちゃんと${names}はやりなよ... `, //アラヤ
-        ];
-        const randomIndex = Math.floor(Math.random() * OVERDUE_MESSAGES.length);
-        selectedMessage = OVERDUE_MESSAGES[randomIndex];
-      } else if (dueTodayTodos.length > 0) {
-        const names = dueTodayTodos.map((todo) => `「${todo.name}」`).join("と");
-        const DUE_TODAY_MESSAGES = [
-          `おい、教本。${names}はもう終わったのか？ `, //ヴァレンチーナ
-          `指令： ${names} の期限が迫っているな。そろそろ遂行したほうがいいんじゃないか？`, //リアン
-          `娘ちゃん！！${names}はもう終わったのか！？まだならパパと一緒に終わらせようぜ！ `, //マティアス
-          `${names} `, //カリスト
-          `${names}をする時間だ。やらなければ、く・へ。 `, //良秀
-        ];
-        const randomIndex = Math.floor(Math.random() * DUE_TODAY_MESSAGES.length);
-        selectedMessage = DUE_TODAY_MESSAGES[randomIndex];
-      }
-
-      if (selectedMessage) {
-        new Notification("TodoAppからの通知", {
-          body: selectedMessage,
-        });
-      }
-    };
+  // 初回マウント時・設定変更時・1分ごとの定期チェック
+  useEffect(() => {
+    if (!isNotifyEnabled || !("Notification" in window)) {
+      return;
+    }
 
     if (Notification.permission === "default") {
       Notification.requestPermission().then((permission) => {
@@ -204,8 +251,50 @@ const App = () => {
     } else if (Notification.permission === "granted") {
       checkAndNotify();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+
+    const intervalId = window.setInterval(() => {
+      checkAndNotify();
+    }, 60 * 1000); // 1分ごとに期限接近をチェック
+
+    return () => window.clearInterval(intervalId);
+  }, [isNotifyEnabled, checkAndNotify]);
+
+  // 通知ON/OFFボタンの切り替え処理
+  const handleToggleNotify = () => {
+    if (!isNotifyEnabled) {
+      // ONにする場合
+      if ("Notification" in window && Notification.permission === "default") {
+        Notification.requestPermission().then((permission) => {
+          if (permission === "granted") {
+            lastNotifiedKeyRef.current = "";
+            setIsNotifyEnabled(true);
+          } else {
+            alert("ブラウザの設定で通知がブロックされています。");
+          }
+        });
+      } else if (
+        "Notification" in window &&
+        Notification.permission === "denied"
+      ) {
+        alert(
+          "ブラウザの設定で通知が拒否されています。アドレスバー左側のアイコンから通知を許可してください。",
+        );
+      } else {
+        lastNotifiedKeyRef.current = "";
+        setIsNotifyEnabled(true);
+      }
+    } else {
+      // OFFにする場合
+      setIsNotifyEnabled(false);
+    }
+  };
+
+  const handleNotifyHoursChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const val = Number(e.target.value);
+    if (!Number.isNaN(val) && val >= 1 && val <= 168) {
+      setNotifyHoursBefore(val);
+    }
+  };
 
   const updateNewTodoName = (e: ChangeEvent<HTMLInputElement>) => {
     setNewTodoName(e.target.value);
@@ -278,7 +367,24 @@ const App = () => {
           <h1 className="text-2xl font-bold">TodoApp</h1>
 
           {/* 右上の各種切り替えボタン群 */}
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {/* 通知ON/OFFボタン */}
+            <button
+              type="button"
+              onClick={handleToggleNotify}
+              aria-pressed={isNotifyEnabled}
+              className={twMerge(
+                "flex cursor-pointer items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-bold text-white shadow-sm transition-colors",
+                isNotifyEnabled
+                  ? "bg-amber-500 hover:bg-amber-600"
+                  : "bg-slate-500 hover:bg-slate-600",
+              )}
+            >
+              <FontAwesomeIcon icon={isNotifyEnabled ? faBell : faBellSlash} />
+              <span>通知{isNotifyEnabled ? "ON" : "OFF"}</span>
+            </button>
+
+            {/* 重要度ON/OFFボタン */}
             <button
               type="button"
               onClick={() => setShowImportanceEffects((prev) => !prev)}
@@ -293,6 +399,7 @@ const App = () => {
               重要度{showImportanceEffects ? "ON" : "OFF"}
             </button>
 
+            {/* ダークモード切替ボタン */}
             <button
               type="button"
               onClick={() => setIsDark((prev) => !prev)}
@@ -307,6 +414,30 @@ const App = () => {
             </button>
           </div>
         </div>
+
+        {/* 通知タイミング設定バー（通知ONのときのみ表示） */}
+        {isNotifyEnabled && (
+          <div className="mb-4 flex items-center justify-end gap-2 text-sm">
+            <label
+              htmlFor="notifyHours"
+              className="font-medium text-slate-700 dark:text-slate-300"
+            >
+              期限の通知タイミング:
+            </label>
+            <input
+              id="notifyHours"
+              type="number"
+              min={1}
+              max={168}
+              value={notifyHoursBefore}
+              onChange={handleNotifyHoursChange}
+              className="w-16 rounded-md border border-slate-300 bg-white px-2 py-1 text-center font-bold text-slate-800 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+            />
+            <span className="font-medium text-slate-700 dark:text-slate-300">
+              時間前から通知
+            </span>
+          </div>
+        )}
 
         {/* ウェルカムメッセージとユーザー名変更UI */}
         <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
