@@ -62,6 +62,16 @@ const getTodoNameError = (name: string): string => {
   return "";
 };
 
+// 現在時刻から期限までの残り時間を逆算して文字列化する関数
+const formatRemainingTime = (now: dayjs.Dayjs, deadline: Date): string => {
+  const diffMinutes = dayjs(deadline).diff(now, "minute");
+  if (diffMinutes < 60) {
+    return `${Math.max(1, diffMinutes)}分`;
+  }
+  const remainingHours = Math.ceil(diffMinutes / 60);
+  return `${remainingHours}時間`;
+};
+
 const App = () => {
   const [todos, setTodos] = useState<Todo[]>(loadTodos);
   const [newTodoName, setNewTodoName] = useState("");
@@ -145,7 +155,6 @@ const App = () => {
 
   useEffect(() => {
     localStorage.setItem(notifyHoursStorageKey, String(notifyHoursBefore));
-    // 通知時間を変更したら再チェックできるように記録をリセット
     lastNotifiedKeyRef.current = "";
   }, [notifyHoursBefore]);
 
@@ -192,13 +201,29 @@ const App = () => {
       );
     });
 
-    // 重複通知防止用のキーを作成
-    const notifyKey = `overdue:${overdueTodos.map((t) => t.id).join(",")}|soon:${approachingTodos.map((t) => t.id).join(",")}|h:${notifyHoursBefore}`;
+    // 残り時間テキストごとにタスクをグループ化（期限が近い順に並べてから分類）
+    const sortedApproaching = [...approachingTodos].sort(
+      (a, b) => dayjs(a.deadline).valueOf() - dayjs(b.deadline).valueOf(),
+    );
+    const groupedByRemainingTime = new Map<string, Todo[]>();
+    for (const todo of sortedApproaching) {
+      const remainingText = formatRemainingTime(now, todo.deadline!);
+      const group = groupedByRemainingTime.get(remainingText) ?? [];
+      group.push(todo);
+      groupedByRemainingTime.set(remainingText, group);
+    }
+
+    // 重複通知防止用のキーを作成（各タスクの残り時間グループも含める）
+    const soonKeyPart = Array.from(groupedByRemainingTime.entries())
+      .map(([time, list]) => `${time}:${list.map((t) => t.id).join(",")}`)
+      .join(";");
+    const notifyKey = `overdue:${overdueTodos.map((t) => t.id).join(",")}|soon:${soonKeyPart}|h:${notifyHoursBefore}`;
+
     if (notifyKey === lastNotifiedKeyRef.current) {
       return;
     }
 
-    let selectedMessage = "";
+    let hasNotified = false;
 
     // ① 期限切れのタスクがある場合（緊急度：高）
     if (overdueTodos.length > 0) {
@@ -212,26 +237,32 @@ const App = () => {
         `子供じゃないんだから、ちゃんと${names}はやりなよ... `, //アラヤ
       ];
       const randomIndex = Math.floor(Math.random() * OVERDUE_MESSAGES.length);
-      selectedMessage = OVERDUE_MESSAGES[randomIndex];
-    }
-    // ② 期限切れはないが、指定した○時間以内に期限が迫っているタスクがある場合（緊急度：中）
-    else if (approachingTodos.length > 0) {
-      const names = approachingTodos.map((todo) => `「${todo.name}」`).join("と");
-      const DUE_SOON_MESSAGES = [
-        `おい、教本。${names}はもう終わったのか？アタシ言ったよな！？あと${notifyHoursBefore}時間以内に終わらせろよ！！？？`, //ヴァレンチーナ
-        `（ビープ音）指令： ${names} の期限があと${notifyHoursBefore}時間後に迫っているな。そろそろ遂行したほうがいいんじゃないか？`, //リアン
-        `娘ちゃん！！${names}はもう終わったのか！？あと${notifyHoursBefore}時間以内だ、まだならパパと一緒に終わらせようぜ！`, //マティアス
-        `あなたの作品：${names}はもう完成したのですか？展示会まであと${notifyHoursBefore}時間しかありませんよ？`, //カリスト
-        `${names}をする時間だ。あと${notifyHoursBefore}時間以内にやらなければ、く・へ。`, //良秀
-      ];
-      const randomIndex = Math.floor(Math.random() * DUE_SOON_MESSAGES.length);
-      selectedMessage = DUE_SOON_MESSAGES[randomIndex];
+      new Notification("TodoAppからの通知（期限切れ）", {
+        body: OVERDUE_MESSAGES[randomIndex],
+        tag: "todo-overdue",
+      });
+      hasNotified = true;
     }
 
-    if (selectedMessage) {
-      new Notification("TodoAppからの通知", {
-        body: selectedMessage,
+    // ② 残り時間が異なるタスクグループごとに個別の通知を発行（緊急度：中）
+    groupedByRemainingTime.forEach((groupTodos, remainingText) => {
+      const names = groupTodos.map((todo) => `「${todo.name}」`).join("と");
+      const DUE_SOON_MESSAGES = [
+        `おい、教本。${names}はもう終わったのか？アタシ言ったよな！？あと${remainingText}以内に終わらせろよ！！？？`, //ヴァレンチーナ
+        `（ビープ音）指令： ${names} の期限があと${remainingText}後に迫っているな。そろそろ遂行したほうがいいんじゃないか？`, //リアン
+        `娘ちゃん！！${names}はもう終わったのか！？あと${remainingText}以内だ、まだならパパと一緒に終わらせようぜ！`, //マティアス
+        `あなたの作品：${names}はもう完成したのですか？展示会まであと${remainingText}しかありませんよ？`, //カリスト
+        `${names}をする時間だ。あと${remainingText}以内にやらなければ、く・へ。`, //良秀
+      ];
+      const randomIndex = Math.floor(Math.random() * DUE_SOON_MESSAGES.length);
+      new Notification(`TodoAppからの通知（残り${remainingText}）`, {
+        body: DUE_SOON_MESSAGES[randomIndex],
+        tag: `todo-soon-${remainingText}`,
       });
+      hasNotified = true;
+    });
+
+    if (hasNotified) {
       lastNotifiedKeyRef.current = notifyKey;
     }
   }, [isNotifyEnabled, notifyHoursBefore, todos]);
@@ -254,7 +285,7 @@ const App = () => {
 
     const intervalId = window.setInterval(() => {
       checkAndNotify();
-    }, 60 * 1000); // 1分ごとに期限接近をチェック
+    }, 60 * 1000);
 
     return () => window.clearInterval(intervalId);
   }, [isNotifyEnabled, checkAndNotify]);
@@ -262,7 +293,6 @@ const App = () => {
   // 通知ON/OFFボタンの切り替え処理
   const handleToggleNotify = () => {
     if (!isNotifyEnabled) {
-      // ONにする場合
       if ("Notification" in window && Notification.permission === "default") {
         Notification.requestPermission().then((permission) => {
           if (permission === "granted") {
@@ -284,7 +314,6 @@ const App = () => {
         setIsNotifyEnabled(true);
       }
     } else {
-      // OFFにする場合
       setIsNotifyEnabled(false);
     }
   };
