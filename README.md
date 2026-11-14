@@ -1,5 +1,9 @@
 # TodoApp
 
+公開先のURL:https://kei-1002.github.io/react-todo-app/
+
+
+
 React、TypeScript、Tailwind CSS を使用し、ローカルストレージでデータを永続化した「Todoアプリ」です。
 
 期限が迫ったり超過した課題があればLimbusCompanyの蜘蛛の巣のキャラクターが期限が迫っている・超過していることを通知で教えてくれます。
