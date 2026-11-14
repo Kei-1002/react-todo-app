@@ -231,7 +231,7 @@ const App = () => {
     <div className="relative min-h-screen bg-slate-50 px-4 py-10 text-slate-900 transition-colors dark:bg-slate-900 dark:text-slate-100">
 {/* うっすら表示する背景画像レイヤー */}
       <div
-        className="pointer-events-none fixed inset-0 bg-cover bg-center opacity-15 dark:opacity-10"
+        className="pointer-events-none fixed inset-0 bg-cover bg-center opacity-20 dark:opacity-25"
         style={{
           backgroundImage: `url('${import.meta.env.BASE_URL}the_house_of_spider.png')`,
         }}
