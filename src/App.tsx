@@ -12,10 +12,13 @@ import {
   faTriangleExclamation,
   faSun,
   faMoon,
+  faPen,
+  faCheck,
 } from "@fortawesome/free-solid-svg-icons";
 
 const localStorageKey = "TodoApp";
 const darkModeStorageKey = "TodoApp_DarkMode";
+const userNameStorageKey = "TodoApp_UserName";
 
 const IMPORTANCE_OPTIONS = [
   { value: 0, label: "なし", colorClass: "text-black dark:text-slate-200" },
@@ -61,7 +64,29 @@ const App = () => {
   const [newTodoDeadline, setNewTodoDeadline] = useState<Date | null>(null);
   const [isNameTouched, setIsNameTouched] = useState(false);
 
-  // ダークモードの状態管理（localStorage または OS設定を初期値にする）
+  // ユーザー名の状態管理（localStorageから読み込み、なければ初期値）
+  const [userName, setUserName] = useState<string>(() => {
+    return localStorage.getItem(userNameStorageKey) || "寝屋川タヌキ";
+  });
+  const [isEditingUserName, setIsEditingUserName] = useState(false);
+  const [tempUserName, setTempUserName] = useState(userName);
+
+  // ユーザー名をlocalStorageへ保存
+  useEffect(() => {
+    localStorage.setItem(userNameStorageKey, userName);
+  }, [userName]);
+
+  const handleSaveUserName = () => {
+    const trimmed = tempUserName.trim();
+    if (trimmed !== "") {
+      setUserName(trimmed);
+    } else {
+      setTempUserName(userName); // 空欄なら元の名前に戻す
+    }
+    setIsEditingUserName(false);
+  };
+
+  // ダークモードの状態管理
   const [isDark, setIsDark] = useState<boolean>(() => {
     const saved = localStorage.getItem(darkModeStorageKey);
     if (saved !== null) {
@@ -70,7 +95,6 @@ const App = () => {
     return window.matchMedia("(prefers-color-scheme: dark)").matches;
   });
 
-  // ダークモードのクラスを <html> タグに反映＆保存
   useEffect(() => {
     const root = document.documentElement;
     if (isDark) {
@@ -92,7 +116,7 @@ const App = () => {
     localStorage.setItem(localStorageKey, JSON.stringify(todos));
   }, [todos]);
 
-  // 2. 通知許可のリクエストと期限チェック通知（初回マウント時に実行）
+  // 2. 通知許可のリクエストと期限チェック通知
   useEffect(() => {
     if (!("Notification" in window)) {
       return;
@@ -105,7 +129,6 @@ const App = () => {
 
       const now = dayjs();
 
-      // 期限切れの未完了タスク（deadline < 現在時刻）
       const overdueTodos = todos.filter((todo) => {
         return (
           !todo.isDone &&
@@ -114,7 +137,6 @@ const App = () => {
         );
       });
 
-      // 今日が期限の未完了タスク（期限切れを除く、今日中のタスク）
       const dueTodayTodos = todos.filter((todo) => {
         return (
           !todo.isDone &&
@@ -126,7 +148,6 @@ const App = () => {
 
       let selectedMessage = "";
 
-      // ① 期限切れのタスクがある場合（緊急度：高）
       if (overdueTodos.length > 0) {
         const names = overdueTodos.map((todo) => `「${todo.name}」`).join("と");
         const OVERDUE_MESSAGES = [
@@ -139,9 +160,7 @@ const App = () => {
         ];
         const randomIndex = Math.floor(Math.random() * OVERDUE_MESSAGES.length);
         selectedMessage = OVERDUE_MESSAGES[randomIndex];
-      }
-      // ② 期限切れはないが、今日が期限のタスクがある場合（緊急度：中）
-      else if (dueTodayTodos.length > 0) {
+      } else if (dueTodayTodos.length > 0) {
         const names = dueTodayTodos.map((todo) => `「${todo.name}」`).join("と");
         const DUE_TODAY_MESSAGES = [
           `おい、教本。${names}はもう終わったのか？ `, //ヴァレンチーナ
@@ -229,7 +248,7 @@ const App = () => {
 
   return (
     <div className="relative min-h-screen bg-slate-50 px-4 py-10 text-slate-900 transition-colors dark:bg-slate-900 dark:text-slate-100">
-{/* うっすら表示する背景画像レイヤー */}
+      {/* うっすら表示する背景画像レイヤー */}
       <div
         className="pointer-events-none fixed inset-0 bg-cover bg-center opacity-20 dark:opacity-25"
         style={{
@@ -237,6 +256,7 @@ const App = () => {
         }}
         aria-hidden="true"
       />
+
       {/* 手前のメインコンテンツ */}
       <div className="relative z-10 mx-auto max-w-2xl">
         <div className="mb-4 flex items-center justify-between">
@@ -255,12 +275,54 @@ const App = () => {
           </button>
         </div>
 
-        <div className="mb-4">
+        {/* ウェルカムメッセージとユーザー名変更UI */}
+        <div className="mb-4 flex flex-wrap items-start justify-between gap-2">
           <WelcomeMessage
-            name="寝屋川タヌキ"
+            name={userName}
             uncompletedCount={uncompletedCount}
           />
+
+          {isEditingUserName ? (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSaveUserName();
+              }}
+              className="flex items-center gap-1.5"
+            >
+              <input
+                type="text"
+                value={tempUserName}
+                onChange={(e) => setTempUserName(e.target.value)}
+                placeholder="ユーザー名を入力"
+                aria-label="新しいユーザー名"
+                maxLength={20}
+                autoFocus
+                className="w-36 rounded-md border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+              />
+              <button
+                type="submit"
+                className="flex cursor-pointer items-center gap-1 rounded-md bg-indigo-500 px-2.5 py-1 text-xs font-bold text-white hover:bg-indigo-600"
+              >
+                <FontAwesomeIcon icon={faCheck} />
+                <span>決定</span>
+              </button>
+            </form>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                setTempUserName(userName);
+                setIsEditingUserName(true);
+              }}
+              className="flex cursor-pointer items-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 shadow-sm hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+            >
+              <FontAwesomeIcon icon={faPen} />
+              <span>名前を変更</span>
+            </button>
+          )}
         </div>
+
         <TodoList todos={todos} updateIsDone={updateIsDone} remove={remove} />
 
         <button

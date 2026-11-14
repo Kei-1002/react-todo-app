@@ -10,12 +10,31 @@ type Props = {
   remove: (id: string) => void;
 };
 
-const IMPORTANCE_CONFIG: Record<number, { label: string; colorClass: string }> = {
+const IMPORTANCE_CONFIG: Record<
+  number,
+  { label: string; colorClass: string; image?: string }
+> = {
   0: { label: "なし", colorClass: "text-black dark:text-slate-200" },
-  1: { label: "低", colorClass: "text-yellow-500 dark:text-yellow-400" },
-  2: { label: "中", colorClass: "text-orange-500 dark:text-orange-400" },
-  3: { label: "高", colorClass: "text-red-600 dark:text-red-400" },
-  4: { label: "最高", colorClass: "text-green-600 dark:text-green-400" },
+  1: {
+    label: "低",
+    colorClass: "text-yellow-500 dark:text-yellow-400",
+    image: "Low.jpe",
+  },
+  2: {
+    label: "中",
+    colorClass: "text-orange-500 dark:text-orange-400",
+    image: "middle.jpe",
+  },
+  3: {
+    label: "高",
+    colorClass: "text-red-600 dark:text-red-400",
+    image: "high.jpe",
+  },
+  4: {
+    label: "最高",
+    colorClass: "text-green-600 dark:text-green-400",
+    image: "veryhigh.jpe",
+  },
 };
 
 const formattedDate = (date: Date) => {
@@ -63,6 +82,14 @@ const TodoItem = (props: Props) => {
             <FontAwesomeIcon icon={faClock} className="mr-0.5" />
             {formattedDate(todo.deadline)}
           </span>
+        )}
+        {/* 重要度に応じたイラストを期限の右に表示 */}
+        {importance.image && (
+          <img
+            src={`${import.meta.env.BASE_URL}${importance.image}`}
+            alt={`重要度: ${importance.label}のイラスト`}
+            className="h-7 w-7 shrink-0 rounded object-contain"
+          />
         )}
         {todo.isDone && (
           <span className="rounded-full bg-slate-800 px-3 py-0.5 text-xs font-medium text-white dark:bg-slate-600">
