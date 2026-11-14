@@ -105,6 +105,7 @@ const App = () => {
 
       const now = dayjs();
 
+      // 期限切れの未完了タスク（deadline < 現在時刻）
       const overdueTodos = todos.filter((todo) => {
         return (
           !todo.isDone &&
@@ -113,6 +114,7 @@ const App = () => {
         );
       });
 
+      // 今日が期限の未完了タスク（期限切れを除く、今日中のタスク）
       const dueTodayTodos = todos.filter((todo) => {
         return (
           !todo.isDone &&
@@ -124,6 +126,7 @@ const App = () => {
 
       let selectedMessage = "";
 
+      // ① 期限切れのタスクがある場合（緊急度：高）
       if (overdueTodos.length > 0) {
         const names = overdueTodos.map((todo) => `「${todo.name}」`).join("と");
         const OVERDUE_MESSAGES = [
@@ -136,7 +139,9 @@ const App = () => {
         ];
         const randomIndex = Math.floor(Math.random() * OVERDUE_MESSAGES.length);
         selectedMessage = OVERDUE_MESSAGES[randomIndex];
-      } else if (dueTodayTodos.length > 0) {
+      }
+      // ② 期限切れはないが、今日が期限のタスクがある場合（緊急度：中）
+      else if (dueTodayTodos.length > 0) {
         const names = dueTodayTodos.map((todo) => `「${todo.name}」`).join("と");
         const DUE_TODAY_MESSAGES = [
           `おい、教本。${names}はもう終わったのか？ `, //ヴァレンチーナ
@@ -223,8 +228,16 @@ const App = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 px-4 py-10 text-slate-900 transition-colors dark:bg-slate-900 dark:text-slate-100">
-      <div className="mx-auto max-w-2xl">
+    <div className="relative min-h-screen bg-slate-50 px-4 py-10 text-slate-900 transition-colors dark:bg-slate-900 dark:text-slate-100">
+      {/* うっすら表示する背景画像レイヤー */}
+      <div
+        className="pointer-events-none fixed inset-0 bg-cover bg-center opacity-15 dark:opacity-10"
+        style={{ backgroundImage: "url('/the_house_of_spider.png')" }}
+        aria-hidden="true"
+      />
+
+      {/* 手前のメインコンテンツ */}
+      <div className="relative z-10 mx-auto max-w-2xl">
         <div className="mb-4 flex items-center justify-between">
           <h1 className="text-2xl font-bold">TodoApp</h1>
           <button
