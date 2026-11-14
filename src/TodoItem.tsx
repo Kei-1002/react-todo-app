@@ -8,6 +8,7 @@ type Props = {
   todo: Todo;
   updateIsDone: (id: string, value: boolean) => void;
   remove: (id: string) => void;
+  showImportanceEffects: boolean;
 };
 
 const IMPORTANCE_CONFIG: Record<
@@ -67,7 +68,14 @@ const TodoItem = (props: Props) => {
             icon={faPersonDigging}
             className="mr-2 shrink-0 text-slate-500 dark:text-slate-400"
           />
-          <span className="min-w-0 text-lg font-medium wrap-anywhere text-slate-700 dark:text-slate-200">
+          <span
+            className={twMerge(
+              "min-w-0 text-lg font-medium wrap-anywhere",
+              props.showImportanceEffects
+                ? importance.colorClass
+                : "text-slate-700 dark:text-slate-200",
+            )}
+          >
             {todo.name}
           </span>
         </label>
@@ -83,8 +91,8 @@ const TodoItem = (props: Props) => {
             {formattedDate(todo.deadline)}
           </span>
         )}
-        {/* 重要度に応じたイラストを期限の右に表示 */}
-        {importance.image && (
+        {/* 重要度ONのときだけ重要度に応じたイラストを期限の右に表示 */}
+        {props.showImportanceEffects && importance.image && (
           <img
             src={`${import.meta.env.BASE_URL}${importance.image}`}
             alt={`重要度: ${importance.label}のイラスト`}

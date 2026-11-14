@@ -19,6 +19,7 @@ import {
 const localStorageKey = "TodoApp";
 const darkModeStorageKey = "TodoApp_DarkMode";
 const userNameStorageKey = "TodoApp_UserName";
+const importanceEffectStorageKey = "TodoApp_ImportanceEffect";
 
 const IMPORTANCE_OPTIONS = [
   { value: 0, label: "なし", colorClass: "text-black dark:text-slate-200" },
@@ -64,14 +65,13 @@ const App = () => {
   const [newTodoDeadline, setNewTodoDeadline] = useState<Date | null>(null);
   const [isNameTouched, setIsNameTouched] = useState(false);
 
-  // ユーザー名の状態管理（localStorageから読み込み、なければ初期値）
+  // ユーザー名の状態管理
   const [userName, setUserName] = useState<string>(() => {
     return localStorage.getItem(userNameStorageKey) || "寝屋川タヌキ";
   });
   const [isEditingUserName, setIsEditingUserName] = useState(false);
   const [tempUserName, setTempUserName] = useState(userName);
 
-  // ユーザー名をlocalStorageへ保存
   useEffect(() => {
     localStorage.setItem(userNameStorageKey, userName);
   }, [userName]);
@@ -81,7 +81,7 @@ const App = () => {
     if (trimmed !== "") {
       setUserName(trimmed);
     } else {
-      setTempUserName(userName); // 空欄なら元の名前に戻す
+      setTempUserName(userName);
     }
     setIsEditingUserName(false);
   };
@@ -104,6 +104,21 @@ const App = () => {
     }
     localStorage.setItem(darkModeStorageKey, String(isDark));
   }, [isDark]);
+
+  // 重要度エフェクト（名前の色変更＆イラスト表示）のON/OFF状態管理
+  const [showImportanceEffects, setShowImportanceEffects] = useState<boolean>(
+    () => {
+      const saved = localStorage.getItem(importanceEffectStorageKey);
+      return saved !== null ? saved === "true" : true; // 初期値はON
+    },
+  );
+
+  useEffect(() => {
+    localStorage.setItem(
+      importanceEffectStorageKey,
+      String(showImportanceEffects),
+    );
+  }, [showImportanceEffects]);
 
   const uncompletedCount = todos.filter((todo) => !todo.isDone).length;
   const completedCount = todos.length - uncompletedCount;
@@ -259,20 +274,38 @@ const App = () => {
 
       {/* 手前のメインコンテンツ */}
       <div className="relative z-10 mx-auto max-w-2xl">
-        <div className="mb-4 flex items-center justify-between">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
           <h1 className="text-2xl font-bold">TodoApp</h1>
-          <button
-            type="button"
-            onClick={() => setIsDark((prev) => !prev)}
-            aria-label="ダークモード切替"
-            className="flex cursor-pointer items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
-          >
-            <FontAwesomeIcon
-              icon={isDark ? faSun : faMoon}
-              className={isDark ? "text-amber-400" : "text-indigo-500"}
-            />
-            <span>{isDark ? "ライト" : "ダーク"}</span>
-          </button>
+
+          {/* 右上の各種切り替えボタン群 */}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setShowImportanceEffects((prev) => !prev)}
+              aria-pressed={showImportanceEffects}
+              className={twMerge(
+                "cursor-pointer rounded-md px-3 py-1.5 text-sm font-bold text-white shadow-sm transition-colors",
+                showImportanceEffects
+                  ? "bg-red-600 hover:bg-red-700"
+                  : "bg-red-600/60 hover:bg-red-600/80",
+              )}
+            >
+              重要度{showImportanceEffects ? "ON" : "OFF"}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsDark((prev) => !prev)}
+              aria-label="ダークモード切替"
+              className="flex cursor-pointer items-center gap-2 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+            >
+              <FontAwesomeIcon
+                icon={isDark ? faSun : faMoon}
+                className={isDark ? "text-amber-400" : "text-indigo-500"}
+              />
+              <span>{isDark ? "ライト" : "ダーク"}</span>
+            </button>
+          </div>
         </div>
 
         {/* ウェルカムメッセージとユーザー名変更UI */}
@@ -323,7 +356,12 @@ const App = () => {
           )}
         </div>
 
-        <TodoList todos={todos} updateIsDone={updateIsDone} remove={remove} />
+        <TodoList
+          todos={todos}
+          updateIsDone={updateIsDone}
+          remove={remove}
+          showImportanceEffects={showImportanceEffects}
+        />
 
         <button
           type="button"
