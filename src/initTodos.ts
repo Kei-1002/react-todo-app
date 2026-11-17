@@ -4,23 +4,23 @@ import { v4 as uuid } from "uuid"; // v4 を uuid という名前でインポー
 export const initTodos: Todo[] = [
   {
     id: uuid(), // UUID v4 を生成してIDにセット
-    name: "解析2の宿題",
+    name: "これは",
     isDone: false,
     priority: 2,
-    deadline: new Date(2026, 10, 2, 17, 30),
+    deadline: null,
   },
   {
     id: uuid(),
-    name: "TypeScriptの勉強 (復習)",
+    name: "チュートリアル",
     isDone: true,
     priority: 3,
-    deadline: null, // このTodoには期限を設定しない
+    deadline: new Date(2026, 11, 31, 23, 59), 
   },
   {
     id: uuid(),
-    name: "基礎物理学3の宿題",
+    name: "です",
     isDone: false,
     priority: 1,
-    deadline: new Date(2026, 10, 11),
+    deadline: null,
   },
 ];
