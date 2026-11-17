@@ -146,7 +146,7 @@ const App = () => {
     return !Number.isNaN(parsed) && parsed >= 1 ? parsed : 24;
   });
 
-  // 同じセッション内で同じ内容の通知を連続発火させないための記録
+  // 同じセッション内で同じ内容の通知を連続通知させないための記録
   const lastNotifiedKeyRef = useRef<string>("");
 
   useEffect(() => {
